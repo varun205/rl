@@ -1,0 +1,689 @@
+-----Bandit epsilion---------------------
+
+
+import gym
+
+import gym_bandits
+
+env = gym.make("BanditTwoArmedHighLowFixed-v0")
+#print(env.action_space.n)
+#print(env.p_dist)
+env.reset()
+env.render()
+import numpy as np
+count = np.zeros(2)
+
+sum_rewards = np.zeros(2)
+Q = np.zeros(2)
+num_rounds = 100
+
+def epsilon_greedy(epsilon):
+ 
+ if np.random.uniform(0,1) < epsilon:
+     return env.action_space.sample()
+ else:
+     return np.argmax(Q)
+ 
+env.reset()
+for i in range(num_rounds):
+    arm = epsilon_greedy(epsilon=0.5)
+    next_state, reward, done, info = env.step(arm)
+    count[arm] += 1
+    sum_rewards[arm]+=reward
+    Q[arm] = sum_rewards[arm]/count[arm]
+
+print(Q)
+print('The optimal arm is arm {}'.format(np.argmax(Q)+1))
+
+
+
+
+--------------------------------------------------------------------------------------------------------------
+-----bandit softmax
+
+
+
+import gym
+
+import gym_bandits
+
+env = gym.make("BanditTwoArmedHighLowFixed-v0")
+#print(env.action_space.n)
+#print(env.p_dist)
+
+import numpy as np
+count = np.zeros(2)
+
+sum_rewards = np.zeros(2)
+Q = np.zeros(2)
+num_rounds = 100
+
+def softmax(T):
+    denom = sum([np.exp(i/T) for i in Q])
+    probs = [np.exp(i/T)/denom for i in Q]
+    arm = np.random.choice(env.action_space.n, p=probs)
+    return arm
+env.reset()
+T = 50 
+for i in range(num_rounds):
+    arm = softmax(T)
+    next_state, reward, done, info = env.step(arm)
+    count[arm] += 1
+    sum_rewards[arm]+=reward
+    Q[arm] = sum_rewards[arm]/count[arm]
+    T = T*0.99
+
+print(Q)
+print('The optimal arm is arm {}'.format(np.argmax(Q)+1))
+
+
+-----------------------------------------------------------------------------------------------
+---bandit thompson-------
+
+
+
+import gym
+
+import gym_bandits
+
+env = gym.make("BanditTwoArmedHighLowFixed-v0")
+#print(env.action_space.n)
+#print(env.p_dist)
+
+import numpy as np
+count = np.zeros(2)
+
+sum_rewards = np.zeros(2)
+Q = np.zeros(2)
+alpha=np.ones(2)
+beta=np.ones(2)
+num_rounds = 100
+
+def thompson_sampling(alpha,beta):
+    samples = [np.random.beta(alpha[i]+1,beta[i]+1) for i in range(2)]
+    return np.argmax(samples)
+
+env.reset()
+for i in range(num_rounds):
+    arm = thompson_sampling(alpha,beta)
+    next_state, reward, done, info = env.step(arm)
+    count[arm] += 1
+    sum_rewards[arm]+=reward
+    Q[arm] = sum_rewards[arm]/count[arm]
+    
+if reward==1:
+    alpha[arm] = alpha[arm] + 1
+else:
+     beta[arm] = beta[arm] + 1
+
+print(Q)
+print('The optimal arm is arm {}'.format(np.argmax(Q)+1))
+
+
+-----------------------------------------------------------------------------------------------------------
+
+#Bandit UCB
+
+
+
+import gym
+
+import gym_bandits
+
+env = gym.make("BanditTwoArmedHighLowFixed-v0")
+#print(env.action_space.n)
+#print(env.p_dist)
+
+import numpy as np
+count = np.zeros(2)
+
+sum_rewards = np.zeros(2)
+Q = np.zeros(2)
+num_rounds = 100
+
+def UCB(i):
+    ucb = np.zeros(2)
+    if i < 2:
+        return i
+    else:
+        for arm in range(2):
+            ucb[arm] = Q[arm] + np.sqrt((2*np.log(sum(count))) / count[arm])
+    return (np.argmax(ucb))
+env.reset()
+
+for i in range(num_rounds):
+    arm = UCB(i)
+    next_state, reward, done, info = env.step(arm)
+    count[arm] += 1
+    sum_rewards[arm]+=reward
+    Q[arm] = sum_rewards[arm]/count[arm]
+  
+
+print(Q)
+print('The optimal arm is arm {}'.format(np.argmax(Q)+1))
+
+
+-------------------------------------------------------------------------------------------------
+
+#Best ad
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+#%matplotlib inline
+plt.style.use('ggplot')
+df = pd.DataFrame()
+for i in range(5):
+ df['Banner_type_'+str(i)] = np.random.randint(0,2,100000)
+df.head()
+
+num_iterations = 100000
+num_banner = 5
+count = np.zeros(num_banner)
+sum_rewards = np.zeros(num_banner)
+Q = np.zeros(num_banner)
+banner_selected = []
+
+def epsilon_greedy_policy(epsilon):
+    if np.random.uniform(0,1) < epsilon:
+        return np.random.choice(num_banner)
+    else:
+        return np.argmax(Q)
+    
+for i in range(num_iterations):
+    banner = epsilon_greedy_policy(0.5)
+    reward = df.values[i, banner]
+    count[banner] += 1
+    sum_rewards[banner]+=reward
+    Q[banner] = sum_rewards[banner]/count[banner]
+    banner_selected.append(banner)
+    
+print( 'The best banner is banner {}'.format(np.argmax(Q)+1))
+
+ax = sns.countplot(banner_selected)
+ax.set(xlabel='Banner', ylabel='Count')
+plt.show()
+
+
+
+--------------------------------------------------------------------------------
+#td sarsa
+
+
+# LEARNING THE OPTIMAL POLICY USING SARSA IN FROZEN LAKE 
+
+#import libraries
+import gymnasium as gym
+import random
+import pandas as pd
+
+#create the envt 
+env = gym.make("FrozenLake-v1", render_mode = "human")
+env.reset()
+
+env.render()
+
+#define a dictionary for the Q table. Initialize the Q value of all (s,a) pairs to 0.0
+
+Q = {}
+for s in range(env.observation_space.n):
+    for a in range(env.action_space.n):
+        Q[(s,a)] = 0.0
+  
+
+print("The initial Q table is ",Q)
+#define the epsilon-greedy policy. We generate a random number from the uniform distribution of 0 to 1. 
+#If teh random number is less than epsilon, we select a random action, else we select the best action.
+def epsilon_greedy(state,epsilon):
+    if random.uniform(0,1) < epsilon:
+        return env.action_space.sample()
+    else:
+        return max(list(range(env.action_space.n)), key = lambda x : Q[(state,x)])
+
+# initialize alpha, gamma and epsilon 
+alpha = 0.85
+gamma = 0.90
+epsilon = 0.8
+
+#set the no. of episodes and the no. of steps in each episode
+
+num_eps = 500
+num_steps = 50
+
+#compute the policy for each episode
+
+for i in range(num_eps):
+    s = env.reset() 
+    s = s[0]
+    a = epsilon_greedy(s,epsilon)
+    for t in range(num_steps):
+        s_, r, done, _, _ = env.step(a) 
+        a_ = epsilon_greedy(s_, epsilon) 
+        predict = Q[(s,a)]
+        target = r + gamma * Q[(s_, a_)]
+        
+        Q[(s,a)] = Q[(s,a)] + alpha * (target - predict) 
+        
+        s = s_
+        a = a_
+        if done:
+            break
+df = pd.DataFrame(list(Q.items()), columns = ['state_action', 'value'])   
+print(df)    
+
+
+------------------------------------------------------------------------------------------------------------
+
+#td prediction
+
+
+
+#TD PREDICTION
+import gymnasium as gym
+import pandas as pd
+
+#create the envt 
+env = gym.make("FrozenLake-v1", render_mode = "human")
+env.reset()
+
+env.render() 
+
+def random_policy():
+    return env.action_space.sample()
+
+V = {}
+for s in range(env.observation_space.n):
+    V[s] = 0.0 
+
+
+alpha = 0.85
+gamma = 0.90
+
+num_eps = 50000
+num_steps = 1000
+
+for i in range(num_eps): 
+    s = env.reset()
+    s = s[0]
+    for t in range(num_steps): 
+        a = random_policy()
+        s_, r, done, _, _ = env.step(a) 
+        
+                    
+        V[s] += alpha * (r + gamma * V[s_] - V[s])             
+        s = s_
+        if done: 
+           break
+
+df = pd.DataFrame(list(V.items()), columns = ['state', 'value'])
+print(df)
+
+--------------------------------------------------------------------------------------------------------------------
+
+#Implementation of TD off-policy (Q-Learning)
+
+
+import gymnasium as gym
+import numpy as np
+import random
+import pandas as pd
+
+env = gym.make("FrozenLake-v1", render_mode = "human")
+
+Q = {}
+for s in range(env.observation_space.n):
+    for a in range(env.action_space.n):
+        Q[(s,a)] = 0.0
+
+def epsilon_greedy(state, epsilon):
+    if random.uniform(0,1) < epsilon:
+        return env.action_space.sample()
+    else:
+        return max(list(range(env.action_space.n)), key = lambda x: Q[(state,x)])
+
+alpha = 0.85
+gamma = 0.90
+epsilon = 0.8
+
+num_eps = 50
+num_steps = 100
+
+for i in range(num_eps):
+    s = env.reset()
+    s = s[0] 
+    for t in range(num_steps):
+        a = epsilon_greedy(s,epsilon)
+        
+        s_,r,done, _, _ = env.step(a)
+        a_ = np.argmax([Q[(s,a)]  for a in range(env.action_space.n)])
+        
+        Q[(s,a)] += alpha * ( r + gamma * Q[(s_,a_)] - Q[(s,a)])
+        
+        s = s_
+        if done:
+            break
+
+df = pd.DataFrame(list(Q.items()), columns = ['state=action', 'value'])   
+print(df)                      
+
+------------------------------------------------------------------------------------------------------
+#Cat Pole
+
+
+
+import gymnasium as gym 
+
+#from gymnasium.wrappers.monitoring import video_recorder
+#from gymnasium.wrappers.monitoring.video_recorder import VideoRecorder 
+
+env = gym.make("CartPole-v1", render_mode = "human")
+
+env.reset()
+
+env.render()
+
+#print state space which is continuous
+print(env.observation_space)
+
+#print action space
+print(env.action_space)
+
+
+env.reset()
+#implement with a random policy
+
+
+n_episodes = 50
+n_timesteps = 50
+
+for i in range(n_episodes):
+    
+    Return = 0
+    for t in range(n_timesteps):
+        env.render()
+       
+        rnd_action = env.action_space.sample()
+        next_state, reward, done, infor, prob = env.step(rnd_action)
+        Return = Return + reward
+        if done:
+            env.reset()
+            break
+    if i%10 == 0:
+        print("Episode : {}, Return : {}".format(i+1, Return))
+
+env.close()
+
+---------------------------------------------------------------------------------------------------------
+
+
+#Implementation of Every-visit Monte Carlo Prediction for Blackjack environment(Q-function)
+
+
+import pandas as pd
+from collections import defaultdict
+import gymnasium as gym
+env=gym.make('Blackjack-v1',render_mode='human')
+env.reset()
+env.render()
+def policy(state):
+    if state[0]>19:
+        return 0
+    else:
+        return 1
+
+state = env.reset()
+state=state[0]
+print(state)
+print(policy(state))
+
+num_timesteps = 100
+def generate_episode(policy):
+    episode = []
+    state = env.reset()
+    state=state[0]
+    for t in range(num_timesteps):
+        action = policy(state)
+        next_state, reward, done, info,trans_prob = env.step(action)
+        episode.append(((state, action), reward))
+        #print("Done is",done)
+        if done:
+            break
+        state=next_state
+    return episode
+print(generate_episode(policy))
+total_return = defaultdict(float)
+N = defaultdict(int)
+num_iterations = 50
+for i in range(num_iterations):
+    episode = generate_episode(policy)
+    sa_pair, rewards = zip(*episode)
+    for t,sa  in enumerate(sa_pair):
+        R = (sum(rewards[t:]))
+        total_return[sa] = total_return[sa] + R
+        N[sa] = N[sa] + 1
+        
+print(total_return[sa])
+print(N[sa])
+        
+total_return = pd.DataFrame(total_return.items(),columns=['state-action', 'total_return'])
+N = pd.DataFrame(N.items(),columns=['state-action', 'N'])
+df = pd.merge(total_return, N, on="state-action")
+print(df.head(10))
+df['QF'] = df['total_return']/df['N']
+print(df.head(10))
+print(df.shape)
+
+df[df['state-action']==(21,9,False)]['QF'].values
+df[df['state-action']==(5,8,False)]['QF'].values
+
+
+env.close()
+
+
+
+-------------------------------------------------------------------------------------------------------------------------
+
+
+#Implementation of First-visit Monte Carlo Prediction for Blackjack environment(Q-function)
+
+
+
+import pandas as pd
+from collections import defaultdict
+import gymnasium as gym
+env=gym.make('Blackjack-v1',render_mode='human')
+env.reset()
+env.render()
+def policy(state):
+    if state[0]>19:
+        return 0
+    else:
+        return 1
+
+state = env.reset()
+state=state[0]
+print(state)
+print(policy(state))
+
+num_timesteps = 100
+def generate_episode(policy):
+    episode = []
+    state = env.reset()
+    state=state[0]
+    for t in range(num_timesteps):
+        action = policy(state)
+        next_state, reward, done, info,trans_prob = env.step(action)
+        episode.append(((state, action), reward))
+        #print("Done is",done)
+        if done:
+            break
+        state=next_state
+    return episode
+print(generate_episode(policy))
+total_return = defaultdict(float)
+N = defaultdict(int)
+num_iterations = 50
+for i in range(num_iterations):
+    episode = generate_episode(policy)
+    sa_pair, rewards = zip(*episode)
+    for t,sa  in enumerate(sa_pair):
+        if sa not in sa_pair[0:t]:
+            R = (sum(rewards[t:]))
+            total_return[sa] = total_return[sa] + R
+            N[sa] = N[sa] + 1        
+print(total_return[sa])
+print(N[sa])
+       
+total_return = pd.DataFrame(total_return.items(),columns=['state-action', 'total_return'])
+N = pd.DataFrame(N.items(),columns=['state-action', 'N'])
+df = pd.merge(total_return, N, on="state-action")
+print(df.head(10))
+df['QF'] = df['total_return']/df['N']
+print(df.head(10))
+print(df.shape)
+df[df['state-action']==(21,9,False)]['QF'].values
+df[df['state-action']==(5,8,False)]['QF'].values
+env.close()
+
+
+
+
+-------------------------------------------------------------------------------------------------------------
+#policy iteration
+
+def compute_value_function(policy):
+    num_iterations = 1000
+    threshold = 1e-20
+    gamma = 1.0
+    
+    value_table = np.zeros(env.observation_space.n)
+    
+    for i in range(num_iterations):
+        updated_value_table = np.copy(value_table)
+        
+        for s in range(env.observation_space.n):
+            a = policy[s]
+            
+            value_table[s] = sum([prob * (r + gamma * updated_value_table[s_])
+                                     for prob, s_, r, _ in env.P[s][a]])
+                                                     
+        if (np.sum (np.fabs (updated_value_table - value_table) ) <= threshold) :
+            break
+    return(value_table)
+    
+def extract_policy(value_table):
+    
+    gamma = 1.0
+    
+    #initialize the policy of all states to zero
+    policy = np.zeros(env.observation_space.n)
+    
+    for s in range(env.observation_space.n):
+        
+        Q_values = [sum([prob * (r + gamma * value_table[s_])
+                             for prob, s_, r, _ in env.P[s][a]]) 
+                                    for a in range(env.action_space.n)]
+        
+        policy[s] = np.argmax(np.array(Q_values))
+        
+    return(policy)  
+
+
+    
+    
+def policy_iteration(env):
+    num_iterations = 1000
+    #initialize the policy of all states to action 0
+    policy = np.zeros(env.observation_space.n)
+    for i in range(num_iterations):
+        value_function = compute_value_function(policy)
+        new_policy = extract_policy(value_function)
+        
+        if (np.all(policy == new_policy)):
+            break
+        policy = new_policy
+    return(policy)
+        
+# main program
+import gymnasium as gym
+import numpy as np
+
+env = gym.make('FrozenLake-v1', render_mode = 'human')
+env.reset()
+env.render() 
+
+optimal_policy = policy_iteration(env)
+print(optimal_policy)
+
+# LEVEL 2: RUN A GAME USING THIS OPTIMAL POLICY
+state= env.reset()
+s = state[0]
+done = False
+tot_reward = 0
+while not done: 
+    #Select the action accordingly to the policy
+    (next_state, reward, done, _, _) = env.step(int(optimal_policy[s]))
+    env.render()
+    s = next_state
+    tot_reward += reward 
+    if done:
+        break
+print("Return =", tot_reward)
+
+
+--------------------------------------------------------------------------------------------------
+#value iteration
+
+
+#SOLVING FROZEN LAKE USING VALUE ITERATION - FIND AN OPTIMAL POLICY
+
+
+import gymnasium as gym
+def value_iteration(env):
+    num_itns = 1000
+    threshold = 1e-20
+    gamma = 1.0
+    value_table = np.zeros(env.observation_space.n)
+    for i in range(num_itns):
+        updated_val_tab = np.copy(value_table)
+        for s in range(env.observation_space.n):
+            Q_values = [sum([prob * (r + gamma * updated_val_tab[s_]) 
+                             for prob, s_, r, _ in env.P[s][a]]) 
+                                for a in range(env.action_space.n)]
+            value_table[s] = max(Q_values)
+        if (np.sum(np.fabs(updated_val_tab - value_table)) <= threshold) :
+            break
+ 
+    return value_table
+ 
+def extract_policy(value_table):
+    gamma = 1.0
+    policy = np.zeros(env.observation_space.n)
+    
+    for s in range(env.observation_space.n): 
+        Q_values = [sum([prob * ( r + gamma * value_table[s_]) 
+                             for prob, s_, r, _ in env.P[s][a]]) 
+                                for a in range(env.action_space.n)]
+        policy[s] = np.argmax(np.array(Q_values))
+        
+    return policy
+ 
+#main prgm
+import numpy as np
+env = gym.make('FrozenLake-v1', render_mode = 'human')
+env.reset()
+env.render()
+ 
+optimal_value_function = value_iteration(env)
+optimal_policy = extract_policy(optimal_value_function)
+ 
+print(optimal_policy)
+env.close()
+
+
+------------------------------------------------------------------------------------------------------------
+
+
+
+
